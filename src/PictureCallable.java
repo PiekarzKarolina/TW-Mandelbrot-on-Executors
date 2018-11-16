@@ -7,7 +7,7 @@ public class PictureCallable implements Callable {
     private int xp, xk, yp, yk;
     private double zx, zy, cX, cY, tmp;
     private final double ZOOM = 150;
-    private final int MAX_ITER = 1570;
+    private final int MAX_ITER = 15570;
 
 
     public PictureCallable(int xp, int xk, int yp, int yk) {
