@@ -1,5 +1,9 @@
 import java.awt.*;
 import java.awt.image.BufferedImage;
+import java.io.FileWriter;
+import java.io.IOException;
+import java.io.PrintWriter;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
@@ -9,10 +13,11 @@ import javax.swing.*;
 public class Mandelbrot extends JFrame {
     private BufferedImage I;
 
-    private Mandelbrot(){
-        final int MAX_ITER = 15570;
+    private Mandelbrot(int maxIter){
+        int MAX_ITER = maxIter;
         final double ZOOM = 150;
         double zx, zy, cX, cY, tmp;
+        Map<Point, Integer> m = new HashMap<>();
 
         setBounds(100, 100, 800, 600);
         setResizable(false);
@@ -30,13 +35,20 @@ public class Mandelbrot extends JFrame {
                     zx = tmp;
                     iter--;
                 }
-                I.setRGB(x, y, iter | (iter << 8));
+                m.put(new Point(x, y), iter);
             }
         }
+        for(Map.Entry<Point, Integer> entry : m.entrySet()){
+            int iter = entry.getValue();
+            int x = entry.getKey().getX();
+            int y = entry.getKey().getY();
+            I.setRGB(x, y,iter | (iter << 8));
+        }
+
     }
 
 
-    private Mandelbrot(int param, String type) {
+    private Mandelbrot(int param, String type, int maxIter) {
         super("Mandelbrot Set");
         setBounds(100, 100, 800, 600);
         setResizable(false);
@@ -54,12 +66,12 @@ public class Mandelbrot extends JFrame {
                 h = getHeight()/10;
 
                 for(int y=h; y<getHeight(); y=y+h) {
-                    Callable<Map<Point, Integer>> callable = new PictureCallable(0, getWidth(), y-h, y);
+                    Callable<Map<Point, Integer>> callable = new PictureCallable(0, getWidth(), y-h, y, maxIter);
                     Future<Map<Point, Integer>> future = pool.submit(callable);
                     set.add(future);
                 }
                 {
-                Callable<Map<Point, Integer>> callable = new PictureCallable(0, getWidth(), getHeight() - h * 10, getHeight());
+                Callable<Map<Point, Integer>> callable = new PictureCallable(0, getWidth(), getHeight() - h * 10, getHeight(), maxIter);
                 Future<Map<Point, Integer>> future = pool.submit(callable);
                 set.add(future);
                 }
@@ -72,12 +84,12 @@ public class Mandelbrot extends JFrame {
                 h = getHeight()/(nThreads*10);
 
                 for(int y=h; y<getHeight(); y=y+h) {
-                    Callable<Map<Point, Integer>> callable = new PictureCallable(0, getWidth(), y-h, y);
+                    Callable<Map<Point, Integer>> callable = new PictureCallable(0, getWidth(), y-h, y, maxIter);
                     Future<Map<Point, Integer>> future = pool.submit(callable);
                     set.add(future);
                 }
                 {
-                Callable<Map<Point, Integer>> callable = new PictureCallable(0, getWidth(), getHeight() - h * nThreads * 10, getHeight());
+                Callable<Map<Point, Integer>> callable = new PictureCallable(0, getWidth(), getHeight() - h * nThreads * 10, getHeight(), maxIter);
                 Future<Map<Point, Integer>> future = pool.submit(callable);
                 set.add(future);
                 }
@@ -90,12 +102,12 @@ public class Mandelbrot extends JFrame {
                 h = getHeight()/(parallelism*10);
 
                 for(int y=h; y<getHeight(); y=y+h) {
-                    Callable<Map<Point, Integer>> callable = new PictureCallable(0, getWidth(), y-h, y);
+                    Callable<Map<Point, Integer>> callable = new PictureCallable(0, getWidth(), y-h, y, maxIter);
                     Future<Map<Point, Integer>> future = pool.submit(callable);
                     set.add(future);
                 }
                 {
-                Callable<Map<Point, Integer>> callable = new PictureCallable(0, getWidth(), getHeight() - h * parallelism * 10, getHeight());
+                Callable<Map<Point, Integer>> callable = new PictureCallable(0, getWidth(), getHeight() - h * parallelism * 10, getHeight(), maxIter);
                 Future<Map<Point, Integer>> future = pool.submit(callable);
                 set.add(future);
                 }
@@ -106,12 +118,12 @@ public class Mandelbrot extends JFrame {
                 h = getHeight()/10;
 
                 for(int y=h; y<getHeight(); y=y+h) {
-                    Callable<Map<Point, Integer>> callable = new PictureCallable(0, getWidth(), y-h, y);
+                    Callable<Map<Point, Integer>> callable = new PictureCallable(0, getWidth(), y-h, y, maxIter);
                     Future<Map<Point, Integer>> future = pool.submit(callable);
                     set.add(future);
                 }
             {
-                Callable<Map<Point, Integer>> callable = new PictureCallable(0, getWidth(), getHeight() - h * 10, getHeight());
+                Callable<Map<Point, Integer>> callable = new PictureCallable(0, getWidth(), getHeight() - h * 10, getHeight(), maxIter);
                 Future<Map<Point, Integer>> future = pool.submit(callable);
                 set.add(future);
             }
@@ -134,6 +146,22 @@ public class Mandelbrot extends JFrame {
         }
     }
 
+    private static long getTime(int param, String executorName, int maxIter){
+
+        long t0, t1;
+
+        if(param==0 && executorName==null) {
+            t0 = System.nanoTime();
+            new Mandelbrot(maxIter);//.setVisible(true);
+            t1 = System.nanoTime();
+        }
+        else{
+            t0 = System.nanoTime();
+            new Mandelbrot(param, executorName, maxIter);//.setVisible(true);
+            t1 = System.nanoTime();
+        }
+        return t1-t0;
+    }
 
     @Override
     public void paint(Graphics g) {
@@ -142,29 +170,47 @@ public class Mandelbrot extends JFrame {
 
     public static void main(String[] args) {
 
-        long t0 = System.nanoTime();
-        new Mandelbrot(0, "SingleThreadExecutor").setVisible(true);
-        long t1 = System.nanoTime();
-        System.out.println("SingleThreadExecutor    " + (t1-t0));
+        String fileName = "wyniki.txt";
 
-        t0 = System.nanoTime();
-        new Mandelbrot(5, "FixedThreadPool").setVisible(true);
-        t1 = System.nanoTime();
-        System.out.println("FixedThreadPool         " + (t1-t0));
+        FileWriter fileWriter = null;
+        try {
+            fileWriter = new FileWriter(fileName);
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+        PrintWriter printWriter = new PrintWriter(fileWriter);
 
-        t0 = System.nanoTime();
-        new Mandelbrot(5, "WorkStealingPool").setVisible(true);
-        t1 = System.nanoTime();
-        System.out.println("WorkStealingPool        " + (t1-t0));
+        int iterations = 1;
 
-        t0 = System.nanoTime();
-        new Mandelbrot(0, "CachedThreadPool").setVisible(true);
-        t1 = System.nanoTime();
-        System.out.println("CachedThreadPool        " + (t1-t0));
+        long timeSingleThreadExecutor = 0;
+        long timeFixedThreadPool = 0;
+        long timeWorkStealingPool = 0;
+        long timeCachedThreadPool = 0;
+        long timeNoExecutors = 0;
 
-        t0 = System.nanoTime();
-        new Mandelbrot().setVisible(true);
-        t1 = System.nanoTime();
-        System.out.println("noExecutors             " + (t1-t0));
+        for(int maxIter = 1000; maxIter<100001; maxIter*=10) {
+            for (int threads = 4; threads < 25; threads += 4) {
+                printWriter.printf("Max iterations: %d%nThreads: %d%n", maxIter, threads);
+                System.out.println("Max iterations: " + maxIter + ", threads: " + threads);
+
+                for (int i = 0; i < iterations; i++) {
+                    timeSingleThreadExecutor += getTime(0, "SingleThreadExecutor", maxIter);
+                    timeFixedThreadPool += getTime(threads, "FixedThreadPool", maxIter);
+                    timeWorkStealingPool += getTime(threads, "WorkStealingPool", maxIter);
+                    timeCachedThreadPool += getTime(0, "CachedThreadPool", maxIter);
+                    timeNoExecutors += getTime(0, null, maxIter);
+                }
+
+                printWriter.printf("SingleThreadExecutor    %d%n", timeSingleThreadExecutor / iterations);
+                printWriter.printf("FixedThreadPool         %d%n", timeFixedThreadPool / iterations);
+                printWriter.printf("WorkStealingPool        %d%n", timeWorkStealingPool / iterations);
+                printWriter.printf("CachedThreadPool        %d%n", timeCachedThreadPool / iterations);
+                printWriter.printf("noExecutors             %d%n", timeNoExecutors / iterations);
+            }
+        }
+
+        System.out.println("Koniec");
+
+        printWriter.close();
     }
 }

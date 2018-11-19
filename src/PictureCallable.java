@@ -7,15 +7,16 @@ public class PictureCallable implements Callable {
     private int xp, xk, yp, yk;
     private double zx, zy, cX, cY, tmp;
     private final double ZOOM = 150;
-    private final int MAX_ITER = 15570;
+    private int MAX_ITER;
 
 
-    public PictureCallable(int xp, int xk, int yp, int yk) {
+    public PictureCallable(int xp, int xk, int yp, int yk, int maxIter) {
         this.m = new HashMap<>();
         this.xp = xp;
         this.xk = xk;
         this.yp = yp;
         this.yk = yk;
+        this.MAX_ITER = maxIter;
     }
 
     public Map<Point, Integer> call() {
