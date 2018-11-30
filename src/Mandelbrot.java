@@ -59,11 +59,19 @@ public class Mandelbrot extends JFrame {
         ExecutorService pool;
         Set<Future<Map<Point, Integer>>> set = new HashSet<>();
 
-        switch(type){
-            case "SingleThreadExecutor":
+        switch(type) {
+            case "SingleThreadExecutorNoCut":
+                pool = Executors.newSingleThreadExecutor();
+                {
+                    Callable<Map<Point, Integer>> callable = new PictureCallable(0, getWidth(), 0, getHeight(), maxIter);
+                    Future<Map<Point, Integer>> future = pool.submit(callable);
+                    set.add(future);
+                }
+            break;
+            case "SingleThreadExecutorCut":
                 pool = Executors.newSingleThreadExecutor();
 
-                h = getHeight()/10;
+                h = getHeight()/(10*param);
 
                 for(int y=h; y<getHeight(); y=y+h) {
                     Callable<Map<Point, Integer>> callable = new PictureCallable(0, getWidth(), y-h, y, maxIter);
@@ -115,7 +123,7 @@ public class Mandelbrot extends JFrame {
             case "CachedThreadPool":
                 pool = Executors.newCachedThreadPool();
 
-                h = getHeight()/10;
+                h = getHeight()/(10*param);
 
                 for(int y=h; y<getHeight(); y=y+h) {
                     Callable<Map<Point, Integer>> callable = new PictureCallable(0, getWidth(), y-h, y, maxIter);
@@ -152,12 +160,12 @@ public class Mandelbrot extends JFrame {
 
         if(param==0 && executorName==null) {
             t0 = System.nanoTime();
-            new Mandelbrot(maxIter);//.setVisible(true);
+            new Mandelbrot(maxIter).setVisible(true);
             t1 = System.nanoTime();
         }
         else{
             t0 = System.nanoTime();
-            new Mandelbrot(param, executorName, maxIter);//.setVisible(true);
+            new Mandelbrot(param, executorName, maxIter).setVisible(true);
             t1 = System.nanoTime();
         }
         return t1-t0;
@@ -170,46 +178,47 @@ public class Mandelbrot extends JFrame {
 
     public static void main(String[] args) {
 
-        String fileName = "wyniki.txt";
+        String fileName = "nowe_wyniki3.txt";
 
         FileWriter fileWriter = null;
         try {
-            fileWriter = new FileWriter(fileName);
+            fileWriter = new FileWriter(fileName, true);
         } catch (IOException e) {
             e.printStackTrace();
         }
         PrintWriter printWriter = new PrintWriter(fileWriter);
 
-        int iterations = 1;
+        int iterations = 5;
 
-        long timeSingleThreadExecutor = 0;
+        long timeSingleThreadExecutorCut = 0;
+        long timeSingleThreadExecutorNoCut = 0;
         long timeFixedThreadPool = 0;
         long timeWorkStealingPool = 0;
         long timeCachedThreadPool = 0;
         long timeNoExecutors = 0;
 
-        for(int maxIter = 1000; maxIter<100001; maxIter*=10) {
-            for (int threads = 4; threads < 25; threads += 4) {
+        for(int maxIter = 555; maxIter<5551; maxIter*=10) {
+            for (int threads = 10; threads < 61; threads +=50) {
                 printWriter.printf("Max iterations: %d%nThreads: %d%n", maxIter, threads);
                 System.out.println("Max iterations: " + maxIter + ", threads: " + threads);
 
                 for (int i = 0; i < iterations; i++) {
-                    timeSingleThreadExecutor += getTime(0, "SingleThreadExecutor", maxIter);
+                    timeSingleThreadExecutorNoCut += getTime(threads, "SingleThreadExecutorNoCut", maxIter);
+                    timeSingleThreadExecutorCut += getTime(threads, "SingleThreadExecutorCut", maxIter);
                     timeFixedThreadPool += getTime(threads, "FixedThreadPool", maxIter);
                     timeWorkStealingPool += getTime(threads, "WorkStealingPool", maxIter);
-                    timeCachedThreadPool += getTime(0, "CachedThreadPool", maxIter);
+                    timeCachedThreadPool += getTime(threads, "CachedThreadPool", maxIter);
                     timeNoExecutors += getTime(0, null, maxIter);
                 }
 
-                printWriter.printf("SingleThreadExecutor    %d%n", timeSingleThreadExecutor / iterations);
+                printWriter.printf("SingleThreadExecutorNoCut    %d%n", timeSingleThreadExecutorNoCut / iterations);
+                printWriter.printf("SingleThreadExecutorCut    %d%n", timeSingleThreadExecutorCut / iterations);
                 printWriter.printf("FixedThreadPool         %d%n", timeFixedThreadPool / iterations);
                 printWriter.printf("WorkStealingPool        %d%n", timeWorkStealingPool / iterations);
                 printWriter.printf("CachedThreadPool        %d%n", timeCachedThreadPool / iterations);
                 printWriter.printf("noExecutors             %d%n", timeNoExecutors / iterations);
             }
         }
-
-        System.out.println("Koniec");
 
         printWriter.close();
     }
